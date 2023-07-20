@@ -109,10 +109,11 @@ def main(args, df_run=False):
             make_normalized_wig.main(args, output_WIG_name, pool)
 
         # ################ Developmental Functions ################
-        # output read union
-        clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
-        # output score union
-        clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
+        if args.control_file is not None:
+            # output read union
+            clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
+            # output score union
+            clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
         # ########################################################
 
         pool.close()

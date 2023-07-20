@@ -56,7 +56,7 @@ def main(args, df_run=False):  # df_run indicates if run_RECOGNICER is being cal
             args.control_file = control_file_name
             print('\n')
 
-        # Step 3: Partition the genome in windows and generate graph files for each chromsome
+        # Step 3: Partition the genome in windows and generate graph files for each chromosome
         print("Partitioning the genome in windows and generate summary files... \n")
         total_tag_in_windows = run_make_graph_file_by_chrom.main(args, pool)
         print("\n")

@@ -139,14 +139,8 @@ def filter_and_find_islands(min_tags_in_window, gap_size, score_threshold, avera
     if (len(chrom_graph) > 0):
         chrom = chrom_graph[0][0]
         filtered_chrom_graph = filter_ineligible_windows(chrom_graph, min_tags_in_window, average)
-        #################### Debugging ####################
-        # np.save('/Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/island/' + graph_file,
-        #         filtered_chrom_graph)
-        # print(
-        #     'Save chrom graph to /Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/island/' + graph_file)
-        #################### Debugging ####################
-        islands = combine_proximal_islands(filtered_chrom_graph, gap_size, 2);
-        islands = find_region_above_threshold(islands, score_threshold);
+        islands = combine_proximal_islands(filtered_chrom_graph, gap_size, 2)
+        islands = find_region_above_threshold(islands, score_threshold)
         number_of_islands += len(islands)
         if not (len(islands) > 0):
             if verbose:
@@ -192,15 +186,17 @@ def main(args, total_read_count, pool):
 
     # generate the probscore summary graph file, only care about enrichment
     # filter the summary graph to get rid of windows whose scores are less than window_score_threshold
-
-    #################### Debugging ####################
     file = args.treatment_file.replace('.bed', '')
-    control_file = args.control_file.replace('.bed', '')
     list_of_graph_files = []
     for chrom in chroms:
         list_of_graph_files.append(file + '_' + chrom + '_graph.npy')
-        list_of_graph_files.append(control_file + '_' + chrom + '_graph.npy')
-    #################### Debugging ####################
+
+    #################### Developmental Functions ####################
+    if args.control_file is not None:
+        control_file = args.control_file.replace('.bed', '')
+        for chrom in chroms:
+            list_of_graph_files.append(control_file + '_' + chrom + '_graph.npy')
+    #################### Developmental Functions ####################
 
     # Use multiprocessing to filter windows with tag count below minimum requirement
     print(

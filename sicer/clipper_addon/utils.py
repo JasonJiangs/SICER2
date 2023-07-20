@@ -88,28 +88,30 @@ def clipper1sided(score_exp, score_back, FDR=0.05, ifuseknockoff=None, nknockoff
 
 
 def clipper2sided(score_exp, score_back, FDR=0.05, nknockoff=None, contrastScore_method='max',
-                   importanceScore_method='diff', FDR_control_method='GZ', ifpowerful=True, seed=12345):
-
+                  importanceScore_method='diff', FDR_control_method='GZ', ifpowerful=True, seed=12345):
     # Convert score_exp and score_back to matrices if they are numerical vectors
     score_exp = np.atleast_2d(score_exp)
     score_back = np.atleast_2d(score_back)
     r1, r2 = score_exp.shape[1], score_back.shape[1]
 
     if r1 == 1 and r2 == 1:
-        raise ValueError('clipper_addon is not yet able to perform two sided identification when either condition has one replicate')
+        raise ValueError(
+            'clipper_addon is not yet able to perform two sided identification when either condition has one replicate')
 
     # Check if nknockoff is reasonable
     nknockoff_max = min(comb(r1 + r2, r1) // 2 - 1 if r1 == r2 else comb(r1 + r2, r1) - 1, 200)
     if nknockoff is not None:
         if not (1 <= nknockoff <= nknockoff_max and isinstance(nknockoff, int)):
-            warnings.warn('nknockoff must be a positive integer and must not exceed the maximum number of knockoff; using the maximal number of knockoffs instead.')
+            warnings.warn(
+                'nknockoff must be a positive integer and must not exceed the maximum number of knockoff; using the maximal number of knockoffs instead.')
         nknockoff = min(nknockoff, nknockoff_max)
     else:
         nknockoff = min(nknockoff_max, 50) if contrastScore_method == "diff" else 1
 
     # Assuming generate_knockoffidx and compute_taukappa are functions defined elsewhere in the script
     knockoffidx = generate_knockoffidx(r1, r2, nknockoff, nknockoff_max, seed)
-    kappatau_ls = compute_taukappa(score_exp, score_back, r1, r2, True, knockoffidx, importanceScore_method, contrastScore_method)
+    kappatau_ls = compute_taukappa(score_exp, score_back, r1, r2, True, knockoffidx, importanceScore_method,
+                                   contrastScore_method)
 
     # Assuming clipper_GZ is a function defined elsewhere in the script
     re = clipper_GZ(kappatau_ls['tau'], kappatau_ls['kappa'], nknockoff, FDR)
@@ -121,7 +123,9 @@ def clipper2sided(score_exp, score_back, FDR=0.05, nknockoff=None, contrastScore
     if ifpowerful and FDR_control_method != 'BH':
         FDR_nodisc = [len(re_i['discovery']) == 0 for re_i in re['results']]
         if any(np.array(FDR_nodisc) & (contrastScore_method == 'max')):
-            warnings.warn('At FDR = {}, no discovery has been found using FDR control method {}; switching to BH...'.format(FDR[np.array(FDR_nodisc)], FDR_control_method))
+            warnings.warn(
+                'At FDR = {}, no discovery has been found using FDR control method {}; switching to BH...'.format(
+                    FDR[np.array(FDR_nodisc)], FDR_control_method))
             # Assuming clipper_BH is a function defined elsewhere in the script
             re_clipperbh = clipper_BH(re['contrastScore'], nknockoff, FDR[np.array(FDR_nodisc)])
             re['results'][np.array(FDR_nodisc)] = re_clipperbh
@@ -131,7 +135,6 @@ def clipper2sided(score_exp, score_back, FDR=0.05, nknockoff=None, contrastScore
 
 def clipper_1sided_woknockoff(score_exp, score_back, r1, r2, FDR=0.05, aggregation_method='mean',
                               importanceScore_method=None, FDR_control_method=None):
-
     # Aggregate multiple replicates into single replicate
     if r1 > 1:
         # Assuming aggregate_clipper is a function defined elsewhere in the script
@@ -155,14 +158,15 @@ def clipper_1sided_woknockoff(score_exp, score_back, r1, r2, FDR=0.05, aggregati
 
     return re
 
+
 def clipper_1sided_wknockoff(score_exp, score_back, r1, r2, FDR=0.05, importanceScore_method=None,
                              contrastScore_method=None, nknockoff=None, nknockoff_max=None, seed=None):
-
     # Assuming generate_knockoffidx is a function defined elsewhere in the script
     knockoffidx = generate_knockoffidx(r1, r2, nknockoff, nknockoff_max, seed)
 
     # Assuming compute_taukappa is a function defined elsewhere in the script
-    kappatau_ls = compute_taukappa(score_exp, score_back, r1, r2, False, knockoffidx, importanceScore_method, contrastScore_method)
+    kappatau_ls = compute_taukappa(score_exp, score_back, r1, r2, False, knockoffidx, importanceScore_method,
+                                   contrastScore_method)
 
     # Assuming clipper_GZ is a function defined elsewhere in the script
     re = clipper_GZ(kappatau_ls['tau'], kappatau_ls['kappa'], nknockoff, FDR)
@@ -174,7 +178,6 @@ def clipper_1sided_wknockoff(score_exp, score_back, r1, r2, FDR=0.05, importance
 
 
 def aggregate_clipper(score, aggregation_method):
-
     if aggregation_method == 'mean':
         score_single = np.nanmean(score, axis=1)
     elif aggregation_method == 'median':
@@ -186,7 +189,6 @@ def aggregate_clipper(score, aggregation_method):
 
 
 def compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_method):
-
     if importanceScore_method == 'diff':
         contrastScore = score_exp - score_back
     elif importanceScore_method == 'max':
@@ -198,7 +200,6 @@ def compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_me
 
 
 def clipper_BC(contrastScore, FDR):
-
     # Impute missing contrast scores with 0
     contrastScore = np.nan_to_num(contrastScore, nan=0)
     c_abs = np.sort(np.unique(np.abs(contrastScore[contrastScore != 0])))
@@ -224,7 +225,6 @@ def clipper_BC(contrastScore, FDR):
 
 
 def clipper_BH(contrastScore, nknockoff=None, FDR=None):
-
     if isinstance(contrastScore, dict):
         n = len(contrastScore[0])
         kappa = contrastScore['kappa']
@@ -233,7 +233,8 @@ def clipper_BH(contrastScore, nknockoff=None, FDR=None):
         tau, kappa = tau[~idx_na], kappa[~idx_na]
         pval = [np.sum(np.logical_not(kappa) & tau >= tau[i],
                        where=~np.isnan(tau)) / np.sum(np.logical_not(kappa),
-                       where=~np.isnan(tau)) * nknockoff / (nknockoff + 1) for i in range(n)]
+                                                      where=~np.isnan(tau)) * nknockoff / (nknockoff + 1) for i in
+                range(n)]
     else:
         n = len(contrastScore)
         idx_na = np.isnan(contrastScore)
@@ -251,7 +252,6 @@ def clipper_BH(contrastScore, nknockoff=None, FDR=None):
 
 
 def generate_knockoffidx(r1, r2, nknockoff, nknockoff_max, seed):
-
     np.random.seed(seed)
 
     if nknockoff_max == 200:
@@ -259,14 +259,14 @@ def generate_knockoffidx(r1, r2, nknockoff, nknockoff_max, seed):
         i_knockoff = 0
         while i_knockoff < nknockoff:
             temp = np.random.choice(r1 + r2, r1, replace=False) + 1
-            if (any(~np.isin(temp, np.arange(1, r1+1))) and any(np.isin(temp, np.arange(1, r1+1)))):
+            if (any(~np.isin(temp, np.arange(1, r1 + 1))) and any(np.isin(temp, np.arange(1, r1 + 1)))):
                 knockoffidx.append(temp)
                 i_knockoff += 1
     else:
         combination_all = list(combinations(np.arange(r1 + r2) + 1, r1))
 
         if r1 == r2:
-            combination_all = combination_all[:len(combination_all)//2][1:]
+            combination_all = combination_all[:len(combination_all) // 2][1:]
         else:
             combination_all = combination_all[1:]
 
@@ -275,8 +275,8 @@ def generate_knockoffidx(r1, r2, nknockoff, nknockoff_max, seed):
     return knockoffidx
 
 
-def compute_taukappa(score_exp, score_back, r1, r2, if2sided, knockoffidx, importanceScore_method, contrastScore_method):
-
+def compute_taukappa(score_exp, score_back, r1, r2, if2sided, knockoffidx, importanceScore_method,
+                     contrastScore_method):
     perm_idx = [np.arange(r1)] + knockoffidx
     score_tot = np.concatenate((score_exp, score_back), axis=1)
 
@@ -313,7 +313,6 @@ def compute_taukappa(score_exp, score_back, r1, r2, if2sided, knockoffidx, impor
 
 
 def clipper_GZ(tau, kappa, nknockoff, FDR):
-
     n = len(tau)
     contrastScore = (2 * kappa - 1) * np.abs(tau)
     contrastScore = np.nan_to_num(contrastScore, nan=0)
@@ -352,7 +351,6 @@ def island_bdg_union(args, filtered, indicator, chroms):
     whole_genome_union = pd.DataFrame(columns=['col1', 'col2', 'col3', 'ctrl', 'treat'])
 
     for chrom in chroms:
-        # connect with chrom
         treat_file = args.treatment_file.replace('.bed', '') + f'_{chrom}'
         ctrl_file = args.control_file.replace('.bed', '') + f'_{chrom}'
 
@@ -366,8 +364,6 @@ def island_bdg_union(args, filtered, indicator, chroms):
         if indicator == 'reads':
             treat_file = 'reads_' + treat_file
             ctrl_file = 'reads_' + ctrl_file
-
-        # reads_treatment_1_chr15_graph.npy
 
         treat_bdg = np.load(treat_file, allow_pickle=True)
         ctrl_bdg = np.load(ctrl_file, allow_pickle=True)
@@ -384,13 +380,16 @@ def island_bdg_union(args, filtered, indicator, chroms):
             treat_bdg = pd.DataFrame(treat_bdg[treat_bdg[:, 3] != 0], columns=['col1', 'col2', 'col3', 'treat'])
             ctrl_bdg = pd.DataFrame(ctrl_bdg[ctrl_bdg[:, 3] != 0], columns=['col1', 'col2', 'col3', 'ctrl'])
 
-        ctrl_bdg = ctrl_bdg.astype({"col1": str, "col2": int, "col3": int, "ctrl": int})  # Assuming these columns should be int
+        ctrl_bdg = ctrl_bdg.astype(
+            {"col1": str, "col2": int, "col3": int, "ctrl": int})
         treat_bdg = treat_bdg.astype({"col1": str, "col2": int, "col3": int, "treat": int})
         merged_df_outer_join = pd.merge(ctrl_bdg, treat_bdg, how='outer', on=['col1', 'col2', 'col3']).fillna(0)
 
         whole_genome_union = pd.concat([whole_genome_union, merged_df_outer_join], axis=0)
 
-    outfile_path = os.path.join(args.output_directory, f'{indicator}_union.bed')
+    outfile_path = os.path.join(args.output_directory, args.treatment_file.replace('.bed', '') + '-' +
+                                args.treatment_file.replace('.bed', '') + '-' +
+                                f'{indicator}_union.bed')
     # save as a bed file
     whole_genome_union.to_csv(outfile_path, sep='\t', header=False, index=False)
     print(f'{indicator} union bedgraph file created')
