@@ -133,6 +133,39 @@ def Generate_windows_and_count_tags(taglist, chrom, chrom_length, window_size):
 
 
 def makeGraphFile(args, filtered, chrom, chrom_length):
+
+    ########### Debugging ##########################################################
+    file = args.control_file.replace('.bed', '')  # removes the .bed extension
+
+    bed_file_name = file + '_' + chrom  # name of the ChIP-seq reads
+    if filtered:
+        bed_file_name = bed_file_name + '_filtered.npy'
+    else:
+        bed_file_name = bed_file_name + '.npy'
+
+    chrom_reads = np.load(bed_file_name, allow_pickle=True)
+
+    tag_list, print_return = get_bed_coords(chrom_reads, chrom_length, args.fragment_size, chrom, args.verbose)
+
+    chrom_graph, tag_count = Generate_windows_and_count_tags(tag_list, chrom, chrom_length, args.window_size)
+
+    file_save_name = file + '_' + chrom
+    if filtered:
+        file_save_name += '_filtered_graph.npy'
+    else:
+        file_save_name += '_graph.npy'
+
+    # graph_dtype = np.dtype([('chrom', 'U6'), ('start', np.int32), ('end', np.int32), ('count', np.int32)])
+    np_chrom_graph = np.array(chrom_graph, dtype=object)
+    np.save(file_save_name, np_chrom_graph)
+    np.save('reads_'+file_save_name, np_chrom_graph)
+    # ################## save to local directory ##################
+    # local_dir = '/Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/bed_graph/'
+    # np.save(local_dir + file_save_name, np_chrom_graph)
+    # print('Graph file saved to local: ' + local_dir)
+    # ############################################################
+    ############################################################################################################
+
     file = args.treatment_file.replace('.bed', '')  # removes the .bed extension
 
     bed_file_name = file + '_' + chrom   # name of the ChIP-seq reads
@@ -157,6 +190,14 @@ def makeGraphFile(args, filtered, chrom, chrom_length):
     #graph_dtype = np.dtype([('chrom', 'U6'), ('start', np.int32), ('end', np.int32), ('count', np.int32)])
     np_chrom_graph = np.array(chrom_graph, dtype=object)
     np.save(file_save_name, np_chrom_graph)
+    np.save('reads_'+file_save_name, np_chrom_graph)
+
+    # # ################## save to local directory ##################
+    # local_dir = '/Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/bed_graph/'
+    # np.save(local_dir + file_save_name, np_chrom_graph)
+    # print('Graph file saved to local: ' + local_dir)
+    # # #############################################################
+
     return (tag_count, print_return)
 
 
@@ -165,7 +206,7 @@ def main(args, pool, filtered=False):
     chrom_lengths = GenomeData.species_chrom_lengths[args.species]
 
     list_of_args = []
-    for i, chrom in enumerate(chroms):
+    for _, chrom in enumerate(chroms):
         if chrom in chrom_lengths.keys():
             chrom_length = chrom_lengths[chrom]
         else:

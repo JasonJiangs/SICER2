@@ -127,4 +127,13 @@ dmypy.json
 #vscode
 .vscode
 
+#pycharm
+.idea
+
 .DS_Store
+
+# dev test files
+dev_test
+test
+sicer/clipper_addon/test_data
+bin/sicer_result

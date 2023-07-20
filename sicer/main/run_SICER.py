@@ -7,6 +7,9 @@ import shutil
 import sys
 import tempfile
 import multiprocessing as mp
+from functools import partial
+
+import pandas as pd
 
 curr_path = os.getcwd()
 
@@ -19,6 +22,7 @@ from sicer.src import associate_tags_with_chip_and_control_w_fc_q
 from sicer.src import filter_islands_by_significance
 from sicer.src import make_normalized_wig
 from sicer.src import filter_raw_tags_by_islands
+from sicer.clipper_addon import utils as clipper_utils
 
 ''' args: ArgumentParser object formed form command line parameters
     df_run: If df_run is true, then this instance of SICER is called by SICER-DF module.
@@ -62,7 +66,7 @@ def main(args, df_run=False):
             args.control_file = control_file_name
             print('\n')
 
-        # Step 3: Partition the genome in windows and generate graph files for each chromsome
+        # Step 3: Partition the genome in windows and generate graph files for each chromosome
         print("Partition the genome in windows and generate summary files... \n")
         total_tag_in_windows = run_make_graph_file_by_chrom.main(args, pool)
         print("\n")
@@ -104,6 +108,13 @@ def main(args, df_run=False):
                 args.gap_size) + "-FDR" + str(args.false_discovery_rate) + "-islandfiltered-normalized.wig")
             make_normalized_wig.main(args, output_WIG_name, pool)
 
+        # ################ Developmental Functions ################
+        # output read union
+        clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
+        # output score union
+        clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
+        # ########################################################
+
         pool.close()
         pool.join()
         # Final Step
@@ -114,4 +125,9 @@ def main(args, df_run=False):
     finally:
         if df_run==False:
             print("Removing temporary directory and all files in it.")
+            # ##################### Debugging #####################
+            # # view the files in the directory
+            # for f in os.listdir(temp_dir):
+            #     print(f)
+            # #####################################################
             shutil.rmtree(temp_dir)

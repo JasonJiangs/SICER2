@@ -116,15 +116,15 @@ def filter_ineligible_windows(chrom_graph, min_tags_in_window, average):
     for window in chrom_graph:
         read_count = window[3]
         score = -1
-        if (read_count >= min_tags_in_window):
-            prob = poisson(read_count, average);
+        if read_count >= min_tags_in_window:
+            prob = poisson(read_count, average)
             if prob < 1e-250:
-                score = 1000;  # outside of the scale, take an arbitrary number.
+                score = 1000  # outside of the scale, take an arbitrary number.
             else:
                 score = -log(prob)
         eligible_window = (window[0], window[1], window[2], score)
         if score > 0:
-            filtered_chrom_graph.append(eligible_window);
+            filtered_chrom_graph.append(eligible_window)
 
     np_filtered_chrom_graph = np.array(filtered_chrom_graph, dtype=object)
     return np_filtered_chrom_graph
@@ -139,6 +139,12 @@ def filter_and_find_islands(min_tags_in_window, gap_size, score_threshold, avera
     if (len(chrom_graph) > 0):
         chrom = chrom_graph[0][0]
         filtered_chrom_graph = filter_ineligible_windows(chrom_graph, min_tags_in_window, average)
+        #################### Debugging ####################
+        # np.save('/Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/island/' + graph_file,
+        #         filtered_chrom_graph)
+        # print(
+        #     'Save chrom graph to /Users/shiyujiang/Desktop/SICER2/sicer/lib/clipper_addon/test_data/island/' + graph_file)
+        #################### Debugging ####################
         islands = combine_proximal_islands(filtered_chrom_graph, gap_size, 2);
         islands = find_region_above_threshold(islands, score_threshold);
         number_of_islands += len(islands)
@@ -151,55 +157,59 @@ def filter_and_find_islands(min_tags_in_window, gap_size, score_threshold, avera
 
 
 def main(args, total_read_count, pool):
-    print("Species: ", args.species);
-    print("Window_size: ", args.window_size);
-    print("Gap size: ", args.gap_size);
-    print("E value is:", args.e_value);
+    print("Species: ", args.species)
+    print("Window_size: ", args.window_size)
+    print("Gap size: ", args.gap_size)
+    print("E value is:", args.e_value)
     print("Total read count:", total_read_count)
     chroms = GenomeData.species_chroms[
         args.species];  # list of chromsomes for the given species (e.g. chr1, chr2, ... , chrx)
-    genome_length = sum(GenomeData.species_chrom_lengths[args.species].values());  # list of length of each chromsomes
-    effective_genome_length = int(args.effective_genome_fraction * genome_length);
-    average = float(total_read_count) * args.window_size / effective_genome_length;  # average read count
+    genome_length = sum(GenomeData.species_chrom_lengths[args.species].values())  # list of length of each chromsomes
+    effective_genome_length = int(args.effective_genome_fraction * genome_length)
+    average = float(total_read_count) * args.window_size / effective_genome_length  # average read count
 
-    print("Genome Length: ", genome_length);
-    print("Effective genome Length: ", effective_genome_length);
-    print("Window average:", average);
+    print("Genome Length: ", genome_length)
+    print("Effective genome Length: ", effective_genome_length)
+    print("Window average:", average)
 
-    window_pvalue = 0.20;
-    bin_size = 0.001;
+    window_pvalue = 0.20
+    bin_size = 0.001
     background = Background_island_probscore_statistics.Background_island_probscore_statistics(total_read_count,
                                                                                                args.window_size,
                                                                                                args.gap_size,
                                                                                                window_pvalue,
                                                                                                effective_genome_length,
-                                                                                               bin_size);
+                                                                                               bin_size)
     min_tags_in_window = background.min_tags_in_window
 
     print("Window pvalue:", window_pvalue)
     print("Minimum num of tags in a qualified window: ", min_tags_in_window)  # first threshold cutoff
 
-    print("\nDetermining the score threshold from random background...");
+    print("\nDetermining the score threshold from random background...")
     # determine threshold from random background
-    score_threshold = background.find_island_threshold(args.e_value);
-    print("The score threshold is:", score_threshold);
+    score_threshold = background.find_island_threshold(args.e_value)
+    print("The score threshold is:", score_threshold)
 
     # generate the probscore summary graph file, only care about enrichment
     # filter the summary graph to get rid of windows whose scores are less than window_score_threshold
 
+    #################### Debugging ####################
     file = args.treatment_file.replace('.bed', '')
+    control_file = args.control_file.replace('.bed', '')
     list_of_graph_files = []
     for chrom in chroms:
         list_of_graph_files.append(file + '_' + chrom + '_graph.npy')
+        list_of_graph_files.append(control_file + '_' + chrom + '_graph.npy')
+    #################### Debugging ####################
 
     # Use multiprocessing to filter windows with tag count below minimum requirement
     print(
-        "Generating the enriched probscore summary graph and filtering the summary graph to eliminate ineligible windows... ");
-    #pool = mp.Pool(processes=min(args.cpu, len(chroms)))
+        "Generating the enriched probscore summary graph and filtering the summary graph to eliminate ineligible windows... ")
+    # pool = mp.Pool(processes=min(args.cpu, len(chroms)))
     filter_and_find_islands_partial = partial(filter_and_find_islands, min_tags_in_window, args.gap_size,
                                               score_threshold, average, args.verbose)
     filtered_islands_result = pool.map(filter_and_find_islands_partial, list_of_graph_files)
-    #pool.close()
+    # pool.close()
 
     file_name = args.treatment_file.replace('.bed', '')
     outfile_path = os.path.join(args.output_directory, (file_name + '-W' + str(args.window_size)
@@ -208,7 +218,7 @@ def main(args, total_read_count, pool):
     path_to_filtered_graph = []
     with open(outfile_path, 'w') as outfile:
         for i in range(0, len(filtered_islands_result)):
-            filtered_chrom_graph = np.load(filtered_islands_result[i][0],allow_pickle=True)
+            filtered_chrom_graph = np.load(filtered_islands_result[i][0], allow_pickle=True)
             path_to_filtered_graph.append(filtered_islands_result[i][0])
             total_number_islands += filtered_islands_result[i][1]
             if (filtered_islands_result[i][2] != ""):
@@ -219,4 +229,4 @@ def main(args, total_read_count, pool):
                         + '\t' + str(window[3]) + '\n')
                 outfile.write(line)
 
-    print("Total number of islands: ", total_number_islands);
+    print("Total number of islands: ", total_number_islands)
