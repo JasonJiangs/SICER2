@@ -384,6 +384,7 @@ def island_bdg_union(args, filtered, indicator, chroms):
             {"col1": str, "col2": int, "col3": int, "ctrl": int})
         treat_bdg = treat_bdg.astype({"col1": str, "col2": int, "col3": int, "treat": int})
         merged_df_outer_join = pd.merge(ctrl_bdg, treat_bdg, how='outer', on=['col1', 'col2', 'col3']).fillna(0)
+        merged_df_outer_join = merged_df_outer_join.sort_values(by=['col2'])
 
         whole_genome_union = pd.concat([whole_genome_union, merged_df_outer_join], axis=0)
 
