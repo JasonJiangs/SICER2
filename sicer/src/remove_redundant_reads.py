@@ -138,7 +138,7 @@ def find_and_filter_reads(path_to_file, cutoff, chrom):
 
 
 def main(args, path_to_file, pool):
-    chroms = GenomeData.species_chroms[args.species];  # list of chromsomes of the given species
+    chroms = GenomeData.species_chroms[args.species]  # list of chromsomes of the given species
     cutoff = args.redundancy_threshold
 
     # Use multiprocessing module to run parallel processes for each chromosome

@@ -19,7 +19,7 @@ def filter_by_fdr_SICER(args, chrom):
     summary_bed = []
 
     for line in summary_graph:
-        if (line[7] <= cutoff):
+        if line[7] <= cutoff:
             bed_line = (line[0], line[1], line[2], line[3])
             summary_bed.append(bed_line)
 
@@ -45,7 +45,7 @@ def filter_by_fdr_SICER_df(args, columnindex, chrom):
 
 
 def main(args, columnindex, pool):
-    chroms = GenomeData.species_chroms[args.species];
+    chroms = GenomeData.species_chroms[args.species]
     total_island_count = 0
     total_read_count = 0
 
@@ -53,7 +53,7 @@ def main(args, columnindex, pool):
 
     #pool = mp.Pool(processes=min(args.cpu, len(chroms)))
     filtered_output = []
-    if (df_call):
+    if df_call:
         filter_by_fdr_partial = partial(filter_by_fdr_SICER_df, args, columnindex)
         filtered_output = pool.map(filter_by_fdr_partial, chroms)
     else:

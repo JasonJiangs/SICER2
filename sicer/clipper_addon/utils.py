@@ -6,14 +6,15 @@ from statsmodels.stats.multitest import multipletests
 from itertools import combinations
 import os
 
+from sicer.lib import GenomeData
 
-def clipper1sided(score_exp, score_back, FDR=0.05, ifuseknockoff=None, nknockoff=None, contrastScore_method=None,
-                  importanceScore_method='diff', FDR_control_method=None, ifpowerful=True, seed=12345):
+def clipper1sided(score_exp=None, score_back=None, FDR=0.05, ifuseknockoff=None, nknockoff=None, contrastScore_method=None,
+                  importanceScore_method='diff', FDR_control_method=None, ifpowerful=True, seed=12345, args=None):
     # Shift all measurements to be non-negative
-    if (score_exp.min() < 0) or (score_back.min() < 0):
-        shift = min(score_exp.min(), score_back.min())
-        score_exp = score_exp - shift
-        score_back = score_back - shift
+    # if (score_exp.min() < 0) or (score_back.min() < 0):
+    #     shift = min(score_exp.min(), score_back.min())
+    #     score_exp = score_exp - shift
+    #     score_back = score_back - shift
 
     # Convert score_exp and score_back to matrices if they are numerical vectors
     score_exp = np.atleast_2d(score_exp)
@@ -38,7 +39,10 @@ def clipper1sided(score_exp, score_back, FDR=0.05, ifuseknockoff=None, nknockoff
             FDR_control_method = 'BC'
 
         # Assuming clipper_1sided_woknockoff is a function defined elsewhere in the script
-        re = clipper_1sided_woknockoff(score_exp, score_back, r1, r2, FDR, importanceScore_method, FDR_control_method)
+        re = clipper_1sided_woknockoff(score_exp=score_exp, score_back=score_back,
+                                       r1=r1, r2=r2, FDR=FDR,
+                                       importanceScore_method=importanceScore_method,
+                                       FDR_control_method=FDR_control_method, args=args)
 
         # if FDR_control_method = BC or GZ but fail to identify any discovery at some FDR levels, switch to BH at those FDR levels.
         if ifpowerful and FDR_control_method != 'BH':
@@ -134,7 +138,7 @@ def clipper2sided(score_exp, score_back, FDR=0.05, nknockoff=None, contrastScore
 
 
 def clipper_1sided_woknockoff(score_exp, score_back, r1, r2, FDR=0.05, aggregation_method='mean',
-                              importanceScore_method=None, FDR_control_method=None):
+                              importanceScore_method=None, FDR_control_method=None, args=None):
     # Aggregate multiple replicates into single replicate
     if r1 > 1:
         # Assuming aggregate_clipper is a function defined elsewhere in the script
@@ -143,11 +147,11 @@ def clipper_1sided_woknockoff(score_exp, score_back, r1, r2, FDR=0.05, aggregati
         score_back = aggregate_clipper(score=score_back, aggregation_method=aggregation_method)
 
     # Assuming compute_importanceScore_wsinglerep is a function defined elsewhere in the script
-    contrastscore = compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_method)
+    contrastscore = compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_method, args=args)
 
     if FDR_control_method == 'BC':
         # Assuming clipper_BC is a function defined elsewhere in the script
-        re = clipper_BC(contrastScore=contrastscore, FDR=FDR)
+        re = clipper_BC(contrastScore=contrastscore, FDR=FDR, args=args)
 
     if FDR_control_method == 'BH':
         # Assuming clipper_BH is a function defined elsewhere in the script
@@ -188,7 +192,7 @@ def aggregate_clipper(score, aggregation_method):
     return score_single
 
 
-def compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_method):
+def compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_method, args=None):
     if importanceScore_method == 'diff':
         contrastScore = score_exp - score_back
     elif importanceScore_method == 'max':
@@ -199,28 +203,48 @@ def compute_importanceScore_wsinglerep(score_exp, score_back, importanceScore_me
     return contrastScore.flatten()
 
 
-def clipper_BC(contrastScore, FDR):
+def clipper_BC(contrastScore, FDR, args=None):
+    # supress warning
+    warnings.filterwarnings("ignore")
     # Impute missing contrast scores with 0
     contrastScore = np.nan_to_num(contrastScore, nan=0)
     c_abs = np.sort(np.unique(np.abs(contrastScore[contrastScore != 0])))
 
-    emp_fdp = np.empty(len(c_abs))
+    emp_fdp = np.full(len(c_abs), np.nan)
     emp_fdp[0] = 1
     for i in range(1, len(c_abs)):
         t = c_abs[i]
+        ### RuntimeWarning: divide by zero encountered in scalar divide
         emp_fdp[i] = min((1 + np.sum(contrastScore <= -t)) / np.sum(contrastScore >= t), 1)
         emp_fdp[i] = min(emp_fdp[i], emp_fdp[i - 1])
 
     c_abs = c_abs[~np.isnan(emp_fdp)]
     emp_fdp = emp_fdp[~np.isnan(emp_fdp)]
-    q = pd.Series(emp_fdp, index=c_abs).reindex(contrastScore, method='nearest').fillna(1).values
+    q = None
+    # series = pd.Series(emp_fdp, index=c_abs)
+    # q = series.reindex(contrastScore)
+    # q = q.fillna(1).values  # unimportant, not processed yet
+    # q = pd.Series(emp_fdp, index=c_abs).reindex(contrastScore).fillna(1).values  ## kill
 
-    re = []
-    for FDR_i in FDR:
-        thre = c_abs[np.min(np.where(emp_fdp <= FDR_i))]
-        re_i = {'FDR': FDR_i, 'FDR_control': 'BC', 'thre': thre, 'q': q, 'discovery': np.where(contrastScore >= thre)}
-        re.append(re_i)
+    if not isinstance(FDR, (list, np.ndarray)):
+        FDR = [FDR]
 
+    re = []  # -------
+    for FDR_i in FDR:  # -------
+        # thre = c_abs[np.min(np.where(emp_fdp <= FDR_i))]
+        indices = np.where(emp_fdp <= FDR_i)  # -------
+        if indices[0].size == 0:
+            thre = 9999999999
+            # raise ValueError("Do not find valid index for the given FDR cutoff.")
+        else:
+            thre = c_abs[np.min(indices)]  # -------
+        re_i = {'FDR': FDR_i, 'FDR_control': 'BC', 'thre': thre, 'q': q, 'discovery': np.where(contrastScore >= thre)}  # -------
+        if thre == 9999999999:
+            re_i['thre'] = None
+        re.append(re_i)  # -------
+
+    # supress warning stop
+    warnings.filterwarnings("default")
     return re
 
 
@@ -380,13 +404,23 @@ def island_bdg_union(args, filtered, indicator, chroms):
             treat_bdg = pd.DataFrame(treat_bdg[treat_bdg[:, 3] != 0], columns=['col1', 'col2', 'col3', 'treat'])
             ctrl_bdg = pd.DataFrame(ctrl_bdg[ctrl_bdg[:, 3] != 0], columns=['col1', 'col2', 'col3', 'ctrl'])
 
-        ctrl_bdg = ctrl_bdg.astype(
-            {"col1": str, "col2": int, "col3": int, "ctrl": int})
+        ctrl_bdg = ctrl_bdg.astype({"col1": str, "col2": int, "col3": int, "ctrl": int})
         treat_bdg = treat_bdg.astype({"col1": str, "col2": int, "col3": int, "treat": int})
         merged_df_outer_join = pd.merge(ctrl_bdg, treat_bdg, how='outer', on=['col1', 'col2', 'col3']).fillna(0)
         merged_df_outer_join = merged_df_outer_join.sort_values(by=['col2'])
+        merged_df_outer_join['col2'] = merged_df_outer_join['col2']
+
 
         whole_genome_union = pd.concat([whole_genome_union, merged_df_outer_join], axis=0)
+
+        # del first second and third columns
+        # merged_df_outer_join = merged_df_outer_join.iloc[:, 3:]
+        merged_df_outer_join = merged_df_outer_join.to_numpy()
+        # save as temp npu file
+        name_for_save = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + '_' + \
+                        f'{indicator}_{chrom}' + '_union.npy'
+
+        np.save(name_for_save, merged_df_outer_join)
 
     outfile_path = os.path.join(args.output_directory, args.treatment_file.replace('.bed', '') + '-' +
                                 args.treatment_file.replace('.bed', '') + '-' +

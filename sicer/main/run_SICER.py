@@ -1,6 +1,6 @@
 # Developed by Zang Lab at University of Virginia - 2018
 
-#Author: Jin Yong Yoo
+# Author: Jin Yong Yoo
 
 import os
 import shutil
@@ -10,6 +10,7 @@ import multiprocessing as mp
 from functools import partial
 
 import pandas as pd
+import time
 
 curr_path = os.getcwd()
 
@@ -23,6 +24,8 @@ from sicer.src import filter_islands_by_significance
 from sicer.src import make_normalized_wig
 from sicer.src import filter_raw_tags_by_islands
 from sicer.clipper_addon import utils as clipper_utils
+import sicer.clipper_addon.clipper as clipper
+from sicer.clipper_addon.clipper import Clipper
 
 ''' args: ArgumentParser object formed form command line parameters
     df_run: If df_run is true, then this instance of SICER is called by SICER-DF module.
@@ -32,7 +35,7 @@ from sicer.clipper_addon import utils as clipper_utils
 def main(args, df_run=False):
     # Checks if there is a control library
     control_lib_exists = True
-    if (args.control_file is None):
+    if args.control_file is None:
         control_lib_exists = False
 
     # Creates temporary directory to contain all intermediate files.
@@ -58,7 +61,7 @@ def main(args, df_run=False):
         print('\n')
 
         # Step 2: Remove redundancy reads in control library according to input threshold
-        if (control_lib_exists):
+        if control_lib_exists:
             control_file_name = os.path.basename(args.control_file)
             print("Preprocess the", control_file_name, "file to remove redundancy with threshold of",
                   args.redundancy_threshold, "\n")
@@ -82,14 +85,44 @@ def main(args, df_run=False):
         print("\n")
 
         # Running SICER with a control library
-        if (control_lib_exists):
+        if control_lib_exists:
             # Step 7
             print("Calculating significance of candidate islands using the control library... \n")
-            associate_tags_with_chip_and_control_w_fc_q.main(args, total_treatment_read_count, total_control_read_count, pool)
+            q_cal_time_start = time.time()
+            associate_tags_with_chip_and_control_w_fc_q.main(args=args,
+                                                             chip_library_size=total_treatment_read_count,
+                                                             control_library_size=total_control_read_count,
+                                                             pool=pool)
+            q_cal_time_end = time.time()
+
+            # ################ Developmental Functions ################
+            print('\n============================================================================================================================================')
+            print('==============================================================Clipper Test==========================================================')
+            print("Identify significant islands using Clipper FDR control\n")
+            # output read union
+            clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
+            # output score union
+            clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
+            # Clipper FDR control
+            test_start_time = time.time()
+            # re = Clipper(args=args, FDR=args.false_discovery_rate, pool=pool)
+
+            clipper_significant_read_count = clipper.main(args=args, pool=pool)
+            test_end_time = time.time()
+            # time.sleep(0.5)
+            print("Time to filter islands by Clipper FDR control: ", test_end_time - test_start_time, " seconds\n")
+            print('===============================================================Clipper Test=========================================================')
+            print('============================================================================================================================================\n')
+            # ########################################################
 
             # Step 8: Filter out any significant islands whose pvalue is greater than the false discovery rate
             print("Identify significant islands using FDR criterion\n")
-            significant_read_count = filter_islands_by_significance.main(args, 7, pool)  # 7 represents the ith column we want to filtered by
+            # value 7 represents the ith column we want to filtered by
+            q_filter_test_start_time = time.time()
+            significant_read_count = filter_islands_by_significance.main(args, 7, pool)
+            q_filter_test_end_time = time.time()
+            total_time = (q_cal_time_end - q_cal_time_start) + (q_filter_test_end_time - q_filter_test_start_time)
+            print("Time to filter islands by p-value FDR control: ", total_time, " seconds\n")
             print("Out of the ", total_treatment_read_count, " reads in ", treatment_file_name, ", ",
                   significant_read_count, " reads are in significant islands\n")
 
@@ -103,18 +136,20 @@ def main(args, df_run=False):
             print("Making summary graph with filtered reads...\n")
             run_make_graph_file_by_chrom.main(args, pool, True)
             # Step 11: Produce Normalized WIG file
-            print("\nNormalizing graphs by total island filitered reads per million and generating summary WIG file...\n")
+            print(
+                "\nNormalizing graphs by total island filitered reads per million and generating summary WIG file...\n")
             output_WIG_name = (treatment_file_name.replace('.bed', '') + "-W" + str(args.window_size) + "-G" + str(
                 args.gap_size) + "-FDR" + str(args.false_discovery_rate) + "-islandfiltered-normalized.wig")
             make_normalized_wig.main(args, output_WIG_name, pool)
 
-        # ################ Developmental Functions ################
-        if args.control_file is not None:
-            # output read union
-            clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
-            # output score union
-            clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
-        # ########################################################
+        # # ################ Developmental Functions ################
+        # if args.control_file is not None:
+        # # ################ Developmental Functions ################
+        #     # output read union
+        #     clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
+        #     # output score union
+        #     clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
+        # # ########################################################
 
         pool.close()
         pool.join()
@@ -124,10 +159,10 @@ def main(args, df_run=False):
         else:
             print("End of SICER")
     finally:
-        if df_run==False:
+        if df_run == False:
             print("Removing temporary directory and all files in it.")
             # ##################### Debugging #####################
-            # # view the files in the directory
+            # view the files in the directory
             # for f in os.listdir(temp_dir):
             #     print(f)
             # #####################################################

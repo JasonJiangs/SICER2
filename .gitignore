@@ -138,3 +138,5 @@ test
 sicer/clipper_addon/test_data
 bin/sicer_result
 bin/recognizer_result
+*.csv
+

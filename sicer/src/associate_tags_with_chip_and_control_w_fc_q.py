@@ -11,7 +11,7 @@ import numpy as np
 import scipy
 import scipy.stats
 
-from sicer.lib import GenomeData;
+from sicer.lib import GenomeData
 from sicer.lib import associate_tags_with_regions
 
 
@@ -78,15 +78,15 @@ def associate_tag_count_to_regions(args, scaling_factor, control_library_size, g
 
 
 def main(args, chip_library_size, control_library_size, pool):
-    chroms = GenomeData.species_chroms[args.species];
-    genomesize = sum(GenomeData.species_chrom_lengths[args.species].values());
-    genomesize = args.effective_genome_fraction * genomesize;
+    chroms = GenomeData.species_chroms[args.species]
+    genomesize = sum(GenomeData.species_chrom_lengths[args.species].values())
+    genomesize = args.effective_genome_fraction * genomesize
 
     print("ChIP library read count:", chip_library_size)
     print("Control library read count:", control_library_size)
 
-    totalchip = 0;
-    totalcontrol = 0;
+    totalchip = 0
+    totalcontrol = 0
     scaling_factor = chip_library_size * 1.0 / control_library_size
 
     # Use multiprocessing to associate each read with an island
@@ -116,13 +116,13 @@ def main(args, chip_library_size, control_library_size, pool):
     with open(outfile_path, 'w') as outfile:
         for chrom in chroms:
             island_file_name = file_name + '_' + chrom + '_' + 'island_summary.npy'
-            island = np.load(island_file_name, allow_pickle=True)
+            island = np.load(island_file_name, allow_pickle=True)  
             #modified_island = []
             for i in range(len(island)):
                 line = island[i]
                 totalchip += int(line[3])
                 totalcontrol += int(line[4])
-                alpha_stat = p_value_list[index] * total_num_of_pvalue / p_value_rank_array[index];
+                alpha_stat = p_value_list[index] * total_num_of_pvalue / p_value_rank_array[index]
                 if alpha_stat > 1:
                     alpha_stat = 1;
                     
