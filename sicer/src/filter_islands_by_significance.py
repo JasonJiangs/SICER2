@@ -20,7 +20,7 @@ def filter_by_fdr_SICER(args, chrom):
 
     for line in summary_graph:
         if line[7] <= cutoff:
-            bed_line = (line[0], line[1], line[2], line[3])
+            bed_line = (line[0], line[1], line[2], line[3], line[4])
             summary_bed.append(bed_line)
 
     np_summary_bed = np.array(summary_bed, dtype=object)

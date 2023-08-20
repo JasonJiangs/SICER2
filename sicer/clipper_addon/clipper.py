@@ -7,6 +7,7 @@ from .utils import clipper2sided, clipper1sided
 import time
 from sicer.lib import GenomeData
 import os
+from functools import partial
 
 def Clipper(score_exp=None, score_back=None, analysis='enrichment', FDR=0.05, procedure=None, contrast_score=None,
             n_permutation=None, seed=12345, args=None, pool=None):
@@ -113,6 +114,47 @@ def insert_gaps(table):
     return new_table
 
 
+def clipper_filter(args, chrom):
+    print('Processing chromosome ' + chrom)
+    island_file_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_island_summary.npy'
+    chrom_island_list = pd.DataFrame(np.load(island_file_name, allow_pickle=True))
+    try:
+        chrom_island_list[1] = chrom_island_list[1] - 1
+    except:
+        chrom_island_save_name = args.treatment_file.replace('.bed', '') + '_' + \
+                                 chrom + '_clipper_island_summary.npy'
+        np.save(chrom_island_save_name, chrom_island_list)
+        return
+
+    indicator = 'reads'
+    union_read_file_name = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + \
+                           '_' + f'{indicator}_{chrom}' + '_union.npy'
+    chrom_union_read = insert_gaps(np.load(union_read_file_name, allow_pickle=True))
+
+    s1 = np.repeat(chrom_union_read[4], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
+    s2 = np.repeat(chrom_union_read[3], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
+
+    # return Clipper contrast score for this chromosome
+    chrom_contrast_score = Clipper(score_exp=s1, score_back=s2, args=args, FDR=args.false_discovery_rate)
+
+    # filter the island using this contrast score
+    median_peak = [np.median(s1[start:end] - s2[start:end]) for start, end in
+                   zip(chrom_island_list[1] + 1, chrom_island_list[2] + 1)]
+
+    if not isinstance(chrom_contrast_score[0], (int, float)):
+        clipper_filtered_island = chrom_island_list.copy()
+    else:
+        try:
+            clipper_filtered_island = chrom_island_list[median_peak >= chrom_contrast_score[0]].copy()
+        except:
+            clipper_filtered_island = chrom_island_list.copy()
+
+    # save the filtered island
+    clipper_filtered_island.loc[:, 1] = clipper_filtered_island.loc[:, 1] + 1
+    chrom_island_save_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_clipper_island_summary.npy'
+    np.save(chrom_island_save_name, clipper_filtered_island)
+
+
 def main(args, pool=None):
     chroms = GenomeData.species_chroms[args.species]
     df_call = args.df  # Determines if this function was called by SICER or SICER-DF
@@ -120,45 +162,47 @@ def main(args, pool=None):
     total_island_count, total_read_count = 0, 0
     island_summary_length = 0
 
-    for chrom in chroms:
-        print('Processing chromosome ' + chrom)
-        island_file_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_island_summary.npy'
-        chrom_island_list = pd.DataFrame(np.load(island_file_name, allow_pickle=True))
-        island_summary_length += len(chrom_island_list)
-        try:
-            chrom_island_list[1] = chrom_island_list[1] - 1
-        except:
-            chrom_island_save_name = args.treatment_file.replace('.bed','') + '_' + \
-                                     chrom + '_clipper_island_summary.npy'
-            np.save(chrom_island_save_name, chrom_island_list)
-            continue
+    filter_by_clipper_partial = partial(clipper_filter, args)
+    pool.map(filter_by_clipper_partial, chroms)
 
-        indicator = 'reads'
-        union_read_file_name = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + \
-                               '_' + f'{indicator}_{chrom}' + '_union.npy'
-        chrom_union_read = insert_gaps(np.load(union_read_file_name, allow_pickle=True))
-
-        s1 = np.repeat(chrom_union_read[4], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
-        s2 = np.repeat(chrom_union_read[3], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
-
-        # return Clipper contrast score for this chromosome
-        chrom_contrast_score = Clipper(score_exp=s1, score_back=s2, args=args, FDR=args.false_discovery_rate)
-
-        # filter the island using this contrast score
-        median_peak = [np.median(s1[start:end] - s2[start:end]) for start, end in zip(chrom_island_list[1]+1, chrom_island_list[2]+1)]
-
-        if not isinstance(chrom_contrast_score[0], (int, float)):
-            clipper_filtered_island = chrom_island_list.copy()
-        else:
-            try:
-                clipper_filtered_island = chrom_island_list[median_peak >= chrom_contrast_score[0]].copy()
-            except:
-                clipper_filtered_island = chrom_island_list.copy()
-
-        # save the filtered island
-        clipper_filtered_island.loc[:, 1] = clipper_filtered_island.loc[:, 1] + 1
-        chrom_island_save_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_clipper_island_summary.npy'
-        np.save(chrom_island_save_name, clipper_filtered_island)
+    # for chrom in chroms:
+    #     print('Processing chromosome ' + chrom)
+    #     island_file_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_island_summary.npy'
+    #     chrom_island_list = pd.DataFrame(np.load(island_file_name, allow_pickle=True))
+    #     try:
+    #         chrom_island_list[1] = chrom_island_list[1] - 1
+    #     except:
+    #         chrom_island_save_name = args.treatment_file.replace('.bed','') + '_' + \
+    #                                  chrom + '_clipper_island_summary.npy'
+    #         np.save(chrom_island_save_name, chrom_island_list)
+    #         continue
+    #
+    #     indicator = 'reads'
+    #     union_read_file_name = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + \
+    #                            '_' + f'{indicator}_{chrom}' + '_union.npy'
+    #     chrom_union_read = insert_gaps(np.load(union_read_file_name, allow_pickle=True))
+    #
+    #     s1 = np.repeat(chrom_union_read[4], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
+    #     s2 = np.repeat(chrom_union_read[3], chrom_union_read[2] - chrom_union_read[1]).to_numpy().reshape(-1, 1)
+    #
+    #     # return Clipper contrast score for this chromosome
+    #     chrom_contrast_score = Clipper(score_exp=s1, score_back=s2, args=args, FDR=args.false_discovery_rate)
+    #
+    #     # filter the island using this contrast score
+    #     median_peak = [np.median(s1[start:end] - s2[start:end]) for start, end in zip(chrom_island_list[1]+1, chrom_island_list[2]+1)]
+    #
+    #     if not isinstance(chrom_contrast_score[0], (int, float)):
+    #         clipper_filtered_island = chrom_island_list.copy()
+    #     else:
+    #         try:
+    #             clipper_filtered_island = chrom_island_list[median_peak >= chrom_contrast_score[0]].copy()
+    #         except:
+    #             clipper_filtered_island = chrom_island_list.copy()
+    #
+    #     # save the filtered island
+    #     clipper_filtered_island.loc[:, 1] = clipper_filtered_island.loc[:, 1] + 1
+    #     chrom_island_save_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_clipper_island_summary.npy'
+    #     np.save(chrom_island_save_name, clipper_filtered_island)
 
     outfile_name = (args.treatment_file.replace('.bed', '') + '-W' + str(args.window_size) + '-G'
                     + str(args.gap_size) + '-ClipperFDR' + str(args.false_discovery_rate) + '-island.bed')
@@ -170,6 +214,8 @@ def main(args, pool=None):
                 island_file_name = chrom + '_union_island_summary_filtered' + str(columnindex) + '.npy'
             else:
                 island_file_name = args.treatment_file.replace('.bed', '') + '_' + chrom + '_clipper_island_summary.npy'
+
+            island_summary_length += len(np.load(island_file_name, allow_pickle=True))
 
             for island in np.load(island_file_name, allow_pickle=True):
                 output_line = ''
