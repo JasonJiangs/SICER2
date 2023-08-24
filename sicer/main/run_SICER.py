@@ -95,25 +95,18 @@ def main(args, df_run=False):
                                                              pool=pool)
             q_cal_time_end = time.time()
 
-            # ################ Developmental Functions ################
-            print('\n============================================================================================================================================')
-            print('==============================================================Clipper Test==========================================================')
+            print('============================================Clipper Test========================================\n')
             print("Identify significant islands using Clipper FDR control\n")
-            # output read union
-            clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
-            # output score union
-            clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
-            # Clipper FDR control
             test_start_time = time.time()
-            # re = Clipper(args=args, FDR=args.false_discovery_rate, pool=pool)
+            # output read union
+            clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species], pool)
 
+            # calculate Clipper FDR control threshold and filter the SICER peak with it
             clipper_significant_read_count = clipper.main(args=args, pool=pool)
             test_end_time = time.time()
-            # time.sleep(0.5)
+            print("Total number of significant islands identified by Clipper: ", clipper_significant_read_count, "\n")
             print("Time to filter islands by Clipper FDR control: ", test_end_time - test_start_time, " seconds\n")
-            print('===============================================================Clipper Test=========================================================')
-            print('============================================================================================================================================\n')
-            # ########################################################
+            print('============================================Clipper Test========================================\n')
 
             # Step 8: Filter out any significant islands whose pvalue is greater than the false discovery rate
             print("Identify significant islands using FDR criterion\n")
