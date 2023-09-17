@@ -135,14 +135,6 @@ def main(args, df_run=False):
                 args.gap_size) + "-FDR" + str(args.false_discovery_rate) + "-islandfiltered-normalized.wig")
             make_normalized_wig.main(args, output_WIG_name, pool)
 
-        # # ################ Developmental Functions ################
-        # if args.control_file is not None:
-        # # ################ Developmental Functions ################
-        #     # output read union
-        #     clipper_utils.island_bdg_union(args, False, 'reads', GenomeData.species_chroms[args.species])
-        #     # output score union
-        #     clipper_utils.island_bdg_union(args, False, 'score', GenomeData.species_chroms[args.species])
-        # # ########################################################
 
         pool.close()
         pool.join()
@@ -156,7 +148,7 @@ def main(args, df_run=False):
             print("Removing temporary directory and all files in it.")
             # ##################### Debugging #####################
             # view the files in the directory
-            # for f in os.listdir(temp_dir):
-            #     print(f)
+            for f in os.listdir(temp_dir):
+                print(f)
             # #####################################################
             shutil.rmtree(temp_dir)

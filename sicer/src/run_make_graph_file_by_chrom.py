@@ -184,8 +184,9 @@ def makeGraphFile(args, filtered, chrom, chrom_length):
     #graph_dtype = np.dtype([('chrom', 'U6'), ('start', np.int32), ('end', np.int32), ('count', np.int32)])
     np_chrom_graph = np.array(chrom_graph, dtype=object)
     np.save(file_save_name, np_chrom_graph)
+
     if args.control_file is not None:
-        np.save('reads_'+file_save_name, np_chrom_graph)
+        np.save('reads_' + file_save_name, np_chrom_graph)
 
     return (tag_count, print_return)
 

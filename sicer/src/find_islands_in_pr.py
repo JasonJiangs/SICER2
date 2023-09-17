@@ -191,12 +191,12 @@ def main(args, total_read_count, pool):
     for chrom in chroms:
         list_of_graph_files.append(file + '_' + chrom + '_graph.npy')
 
-    #################### Developmental Functions ####################
-    if args.control_file is not None:
-        control_file = args.control_file.replace('.bed', '')
-        for chrom in chroms:
-            list_of_graph_files.append(control_file + '_' + chrom + '_graph.npy')
-    #################### Developmental Functions ####################
+    # #################### Developmental Functions ####################
+    # if args.control_file is not None:
+    #     control_file = args.control_file.replace('.bed', '')
+    #     for chrom in chroms:
+    #         list_of_graph_files.append(control_file + '_' + chrom + '_graph.npy')
+    # #################### Developmental Functions ####################
 
     # Use multiprocessing to filter windows with tag count below minimum requirement
     print(

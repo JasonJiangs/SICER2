@@ -34,6 +34,7 @@ def Clipper(analysis='enrichment', FDR=0.05, procedure=None, contrast_score=None
 
 def filter_island_with_clipper(args, chroms, pool=None):
     threshold = Clipper(args=args, chroms=chroms, FDR=args.false_discovery_rate, pool=pool)
+    print('Clipper threshold is: ', threshold)
     for chrom in chroms:
         chrom_island_load = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + '_' + \
                         f'reads_{chrom}' + '_island_summary_clipper.npy'
@@ -50,6 +51,23 @@ def filter_island_with_clipper(args, chroms, pool=None):
 
         mean_peak = [np.mean(s1[start:end] - s2[start:end])
                        for start, end in zip(chrom_island_list[1], chrom_island_list[2])]
+
+        # ======================evaluation part======================
+        # align the mean_peak with the chrom_island_list
+        chrom_island_list_t = chrom_island_list.to_numpy()
+        chrom_island_list_t = np.concatenate((chrom_island_list_t, np.array(mean_peak).reshape(-1, 1)), axis=1)
+        # save the filtered island
+        chrom_island_list_t = pd.DataFrame(chrom_island_list_t, columns=['chrom', 'start', 'end', 'treat', 'ctrl', 'contrast score'])
+        chrom_island_list_t = index_bp_conversion_back(chrom_island_list_t, window_size=args.window_size)
+        # save to csv file
+        chrom_island_list_t.to_csv('/Users/shiyujiang/Desktop/SICER2/dev_test/evaluation/result/all/' +
+                                 chrom_island_load.replace('.npy', '.csv'), index=True)
+        true_false = np.array(mean_peak) >= threshold
+        # save the true false to csv file
+        pd.DataFrame(true_false).to_csv('/Users/shiyujiang/Desktop/SICER2/dev_test/evaluation/result/partial/'+
+                                    chrom_island_load.replace('.npy', '_true_false.csv'), index=True)
+        # ======================evaluation part======================
+
         clipper_peak = chrom_island_list[np.array(mean_peak) >= threshold]
         np.save(chrom_island_load, clipper_peak)
 
@@ -83,7 +101,7 @@ def main(args, pool=None):
                 continue
 
             island_summary_length += len(filtered_island)
-            filtered_island = index_bp_conversion_back(filtered_island).to_numpy()
+            filtered_island = index_bp_conversion_back(filtered_island, window_size=args.window_size).to_numpy()
 
             for island in filtered_island:
                 output_line = ''

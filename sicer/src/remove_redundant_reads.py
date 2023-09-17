@@ -113,7 +113,8 @@ def match_by_chrom(file, chrom):
         reads = re.split('\t', reads)
         if (len(reads) < 6):
             sys.stderr.write(
-                "Error: Input BED files must have the first six fields. Check " + file_name + " to see if it has the following fields: chrom, chromStart, chromEnd, name, score, and strand\n")
+                "Error: Input BED files must have the first six fields. Check " + file_name +
+                " to see if it has the following fields: chrom, chromStart, chromEnd, name, score, and strand\n")
             sys.exit(1)
         reads[1] = int(reads[1])
         reads[2] = int(reads[2])

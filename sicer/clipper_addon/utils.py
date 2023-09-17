@@ -115,7 +115,7 @@ def island_bdg_union_partial(args, indicator, filtered, chrom):
     treat_bdg = np.load(treat_file, allow_pickle=True)
     ctrl_bdg = np.load(ctrl_file, allow_pickle=True)
 
-    try:
+    try:  # TODO: no 'CUTLL-H3K27me3-SRR243558.sort_chrM_island_summary.npy' found when the window size is large, e.g. 50000, 100000
         island_bdg = pd.DataFrame(np.load(island_file, allow_pickle=True)[:, :5],
                                   columns=['chrom', 'start', 'end', 'treat', 'ctrl']).astype(
             {'chrom': str, 'start': int, 'end': int, 'treat': int, 'ctrl': int})
@@ -144,11 +144,11 @@ def island_bdg_union_partial(args, indicator, filtered, chrom):
     name_for_save_union_read = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed',
                                                                                                          '') + '_' + \
                                f'{indicator}_{chrom}' + '_union.npy'
-    np.save(name_for_save_union_read, index_bp_conversion(merged_df_outer_join).to_numpy())
+    np.save(name_for_save_union_read, index_bp_conversion(merged_df_outer_join, window_size=args.window_size).to_numpy())
 
     merged_df_outer_join = insert_gaps(merged_df_outer_join)
-    merged_df_outer_join = index_bp_conversion(merged_df_outer_join)
-    island_bdg = index_bp_conversion(island_bdg)
+    merged_df_outer_join = index_bp_conversion(merged_df_outer_join, window_size=args.window_size)
+    island_bdg = index_bp_conversion(island_bdg, window_size=args.window_size)
 
     name_for_save_union_read = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed',
                                                                                                          '') + '_' + \
@@ -195,17 +195,17 @@ def insert_gaps(table):
     return new_table
 
 
-def index_bp_conversion(bdg_file):
+def index_bp_conversion(bdg_file, window_size=200):
     return bdg_file.assign(
-        start=(bdg_file['start'] / 200).astype(int),
-        end=((bdg_file['end'] + 1) / 200).astype(int)
+        start=(bdg_file['start'] / window_size).astype(int),
+        end=((bdg_file['end'] + 1) / window_size).astype(int)
     )
 
 
-def index_bp_conversion_back(bdg_file):
+def index_bp_conversion_back(bdg_file, window_size=200):
     return bdg_file.assign(
-        start=(bdg_file['start'] * 200).astype(int),
-        end=((bdg_file['end'] * 200) - 1).astype(int)
+        start=(bdg_file['start'] * window_size).astype(int),
+        end=((bdg_file['end'] * window_size) - 1).astype(int)
     )
 
 
