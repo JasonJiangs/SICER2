@@ -19,6 +19,7 @@ from sicer.src import associate_tags_with_chip_and_control_w_fc_q
 from sicer.src import filter_islands_by_significance
 from sicer.src import make_normalized_wig
 from sicer.src import filter_raw_tags_by_islands
+from sicer.src import clipper
 
 ''' args: ArgumentParser object formed form command line parameters
     df_run: If df_run is true, then this instance of SICER is called by SICER-DF module.
@@ -83,6 +84,11 @@ def main(args, df_run=False):
             print("Calculating significance of candidate islands using the control library... \n")
             associate_tags_with_chip_and_control_w_fc_q.main(args, total_treatment_read_count, total_control_read_count, pool)
 
+            print("Identify significant islands using Clipper FDR control approach\n")
+            clipper_significant_read_count = clipper.main(args, pool)
+            print("Out of the ", total_treatment_read_count, " reads in ", treatment_file_name, ", ",
+                    clipper_significant_read_count, " reads are in significant islands\n")
+
             # Step 8: Filter out any significant islands whose pvalue is greater than the false discovery rate
             print("Identify significant islands using FDR criterion\n")
             significant_read_count = filter_islands_by_significance.main(args, 7, pool)  # 7 represents the ith column we want to filtered by
@@ -114,4 +120,6 @@ def main(args, df_run=False):
     finally:
         if df_run==False:
             print("Removing temporary directory and all files in it.")
+            # for f in os.listdir(temp_dir):
+            #     print(f)
             shutil.rmtree(temp_dir)
