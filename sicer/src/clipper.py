@@ -99,7 +99,6 @@ def get_discovery(args, chroms, thre):
         try:
             union_read_file = np.load(union_read_file_name, allow_pickle=True)
             union_read_file[:, 1:6] = union_read_file[:, 1:6].astype(np.int32)
-
         except:
             continue
 
@@ -273,7 +272,7 @@ def islands_bdg_union_partial(args, chrom):
     treat_bdg = np.load(treat_file, allow_pickle=True)
     ctrl_bdg = np.load(ctrl_file, allow_pickle=True)
 
-    try:  # TODO: no 'CUTLL-H3K27me3-SRR243558.sort_chrM_island_summary.npy' found when the window size is large, e.g. W50000, 100000
+    try:
         island_bdg = pd.DataFrame(np.load(island_file, allow_pickle=True)[:, :5],
                                   columns=['chrom', 'start', 'end', 'treat', 'ctrl']).astype(
             {'chrom': str, 'start': int, 'end': int, 'treat': int, 'ctrl': int})
@@ -372,22 +371,40 @@ def main(args, pool):
             read_union = pd.DataFrame(np.load(chrom_read_union_load, allow_pickle=True),
                                       columns=['chrom', 'start', 'end', 'treat', 'ctrl', 'diff']).astype(
                 {'chrom': str, 'start': int, 'end': int, 'treat': int, 'ctrl': int, 'diff': int})
-
-        except:
+        except FileNotFoundError:
+            # TODO: provide explanation
             continue
 
         # filter and find clipper filtered peak
         clipper_peak_save = args.treatment_file.replace('.bed', '') + '_' + args.control_file.replace('.bed', '') + \
                             '_' + f'read_{chrom}' + '_island_clipper_filtered.npy'
 
+        peak_mean_list = []  # TODO: can be deleted (test)
         filtered_island_list = []
         for i in range(len(chrom_island_list)):
             filtered_reads = filter_rows_within_range(read_union, chrom_island_list.iloc[i]['start'],
                                                         chrom_island_list.iloc[i]['end'])
             # calculate the mean of difference between treatment and control
-            mean_value = np.sum(filtered_reads['treat'] - filtered_reads['ctrl'])  # TODO: mean or sum
+            mean_value = np.mean(filtered_reads['treat'] - filtered_reads['ctrl'])  # TODO: mean or sum
+            peak_mean_list.append(mean_value)   # TODO: can be deleted (test)
             if mean_value >= threshold:
                 filtered_island_list.append(chrom_island_list.iloc[i])
+
+        # ======================evaluation part======================
+        # align the mean_peak with the chrom_island_list
+        chrom_island_list_t = chrom_island_list.to_numpy()
+        chrom_island_list_t = np.concatenate((chrom_island_list_t, np.array(peak_mean_list).reshape(-1, 1)), axis=1)
+        # save the filtered island
+        chrom_island_list_t = pd.DataFrame(chrom_island_list_t, columns=['chrom', 'start', 'end', 'treat', 'ctrl', 'contrast score'])
+        chrom_island_list_t = index_bp_conversion_back(chrom_island_list_t, window_size=args.window_size)
+        # save to csv file
+        chrom_island_list_t.to_csv('/Users/shiyujiang/Desktop/SICER-Clipper/New_version/SICER2/clipper_test/evaluation/temp/all/' +
+                                 chrom_island_load.replace('.npy', '.csv'), index=True)
+        true_false = np.array(peak_mean_list) >= threshold
+        # save the true false to csv file
+        pd.DataFrame(true_false).to_csv('/Users/shiyujiang/Desktop/SICER-Clipper/New_version/SICER2/clipper_test/evaluation/temp/partial/'+
+                                    chrom_island_load.replace('.npy', '_true_false.csv'), index=True)
+        # ======================evaluation part======================
 
         filtered_island_list = pd.DataFrame(filtered_island_list)
         np.save(clipper_peak_save, filtered_island_list.to_numpy())
