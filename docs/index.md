@@ -1,26 +1,37 @@
 # SICER2
-Redesigned and improved ChIP-seq broad peak calling tool SICER
+Redesigned ChIP-seq broad peak calling tool SICER with enhanced false discovery rate control and accelerated performance
 
 [![Build Status](https://travis-ci.com/zanglab/SICER2.svg?branch=master)](https://travis-ci.com/zanglab/SICER2)
 
-[GitHub Repo](https://github.com/zanglab/SICER2)
+[GitHub Repository](https://github.com/zanglab/SICER2)
 
 ## Introduction
 
-Chromatin immunoprecipitation combined with high-throughput sequencing (ChIP-seq) can be used to map binding sites of a protein of interest in the genome. Histone modifications usually occupy broad chromatin domains and result in diffuse patterns in ChIP-seq data that make it difficult to identify signal enrichment. SICER, a spatial clustering approach for the identification of ChIP-enriched regions, was developed for calling broad peaks from ChIP-seq data. 
+Chromatin immunoprecipitation combined with high-throughput sequencing (ChIP-seq) can be used to map binding sites of a 
+protein of interest in the genome. Histone modifications usually occupy broad chromatin domains and result in diffuse 
+patterns in ChIP-seq data that make it difficult to identify signal enrichment. SICER, a spatial clustering approach for 
+the identification of ChIP-enriched regions, was developed for calling broad peaks from ChIP-seq data. 
 
-Usability of the original SICER software has been affected by increased throughputs of ChIP-seq experiments over the years. We now present SICER2 a more user-friendly version of SICER that has been redisgned and streamlined to handle large ChIP-seq data sets. This new Python package supports multiple job submissions on cluster systems and parallel processing on multicore architectures.
+Usability of the original SICER software has been affected by increased throughputs of ChIP-seq experiments over the 
+years. We now present SICER2 a more user-friendly version of SICER that has been redisgned and streamlined to handle 
+large ChIP-seq data sets. This new Python package supports multiple job submissions on cluster systems and parallel 
+processing on multicore architectures.
 
-For more information about the original SICER algorithm, please see
-
+For more information about the original SICER algorithm, please see <br>
  “*A clustering approach for identification of enriched domains from histone modification
  ChIP-Seq data*" Chongzhi Zang, Dustin E. Schones, Chen Zeng, Kairong Cui, Keji Zhao, and
  Weiqun Peng, **Bioinformatics** 25, 1952 - 1958 (2009)
 
+In addition, we present an alternative algorithm for identification of broad domains from ChIP-seq data called 
+RECOGNICER.
+For more information about RECOGNICER algorithm, please see to know more <br>
+"*RECOGNICER: A coarse-graining approach for identifying broad domains from ChIP-seq data*" Chongzhi Zang, Yiren Wang,
+and Weiqun Peng, **Quantitative Biology** 8, 359-368 (2020)
 
-In addition, we present an alternative algorithm for identification of broad domains from ChIP-seq data called RECOGNICER.
-
-*(More detail about RECOGNICER TBD)*
+Besides, we integrated a *p*-value-free false discovery rate (FDR) control method called Clipper as an alternative approach into SICER2,
+please check the SICER2 paper for more details <br>
+"*SICER 2.0: a redesigned ChIP-seq broad peak calling tool with enhanced FDR control and accelerated performance*" 
+Shiyu Jiang, Jin Yong Yoo, Yiren Wang, and Chongzhi Zang, **Under Review**.
 
 ## Installation
 ### Quick Installation
@@ -42,8 +53,7 @@ C compiler is required to compile C codes that are part of the SICER2 package. T
 Lastly, if you would like to directly pass BAM files as input files for SICER2, you need to have *bedtools* installed. Please refer to this [link](http://bedtools.readthedocs.io/en/latest/) for more details on installing bedtools. This is not required if you will intend to only pass BED files as input files.
 
 ### Other Installations
-For local installation, the source distribution file is available at Zang Lab website ([link](http://faculty.virginia.edu/zanglab/))
-
+For local installation, the source distribution file is available at Zang Lab website ([link](https://zanglab.github.io/software.htm))
 
 ## Using SICER2
 The terminal command to run SICER is `sicer`. The command to run RECOGNICER is `recognicer`.
@@ -59,7 +69,7 @@ The file name can either the relative path or the absolute path of the file.
 Like the treatment file, control file must be in BED or BAM format and can be the relative path or the absolute path of the file. However, control library input is optional.
 
 ##### -s/--species (Required)
-ex) `-s hg38`
+e.g. `-s hg38`
 
 ##### -rt/--redundancy_threshold (Optional)
 The number of copies of indentical reads allowed in a library. Default value is 1
@@ -76,6 +86,9 @@ Effective genome as fraction of the genome size. Default value is 0.74.
 
 ##### -fdr/--false_discovery_rate (Optional)
 Remove all islands with an false-discovery-rate below cutoff. Default value is 0.01.
+
+##### -fdra/--false_discovery_rate_approach (Optional)
+Approach to perform FDR control. Default value is "BH" (Benjamini-Hochberg). Alternative option is "Clipper"".
 
 ##### -g/--gap_size (Optional)
 The minimum length of a "gap" such that neighboring window is an "island."
@@ -123,12 +136,14 @@ While optional, two files must be given as input if you decide to provide the in
 ##### -fdr_df/--false_discovery_rate_df (Optional)
 Cutoff for identification of significant changes been wild-type library and knockout library. Default value is 0.01.
 
+##### -fdra_df/--false_discovery_rate_approach_df (Optional)
+Approach to perform FDR control. Default value is "BH" (Benjamini-Hochberg). Alternative option is "Clipper"".
 
 ## Example Use
 1. Calling SICER with a control library.
 *Default parameters are explicitly entered for the sake of demonstration.*
 
-`sicer -t treatment.bed -c control.bed -s hg38 -w 200 -rt 1 -f 150 -egf 0.74 -fdr 0.01 -g 600 -e 1000`
+`sicer -t treatment.bed -c control.bed -s hg38 -w 200 -rt 1 -f 150 -egf 0.74 -fdr 0.01 -fdra BH -g 600 -e 1000`
 
 2. Calling SICER without a control library
 

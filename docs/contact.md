@@ -1,4 +1,4 @@
 # Contact
-For any questions or comments, please contact Zang Lab at zang@virginia.edu.
+For any questions or comments, please contact Zang Lab [[Link](https://zanglab.github.io/index.htm)] at zang@virginia.edu. 
 
-Also, link to lab website: [zanglab](http://faculty.virginia.edu/zanglab/)
+You can also open an issue on the GitHub repository [[Link](https://github.com/zanglab/SICER2)].
