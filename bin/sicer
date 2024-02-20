@@ -4,6 +4,7 @@
 #Author: Jin Yong Yoo
 
 import os
+import time
 import sys, errno, warnings
 
 curr_path = os.getcwd()
@@ -11,10 +12,12 @@ cpu_available = os.cpu_count() - 1  #leave one core for I/O
 
 import subprocess
 import argparse
+import logging
 
 # Imports from SICER package
 from sicer.main import run_SICER
 from sicer.lib import Utility, GenomeData
+from sicer import set_log_path
 
 def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
         return '%s:%s: %s:%s\n' % (filename, lineno, category.__name__, message)
@@ -66,6 +69,7 @@ def main():
         default=200,
         help='Resolution of SICER. Default value is 200 (bp)'
     )
+
     parser.add_argument(
         '--fragment_size',
         '-f',
@@ -91,6 +95,15 @@ def main():
         default=0.01,
         type=float,
         help='''Remove all islands with an false_discovery_rate below cutoff. Default value is 0.01.'''
+    )
+
+    parser.add_argument(
+        '--false_discovery_rate_approach',
+        '-fdra',
+        required=False,
+        default='bh',
+        type=str,
+        help='''Approach to perform FDR control. Default value is "BH" (Benjamini-Hochberg). Alternative option is "clipper"".'''
     )
 
     parser.add_argument(
@@ -143,9 +156,14 @@ def main():
         action="store_true"
     )
 
+    start_time = time.time()
     args = parser.parse_args()
-    setattr(args,'subcommand','SICER')
-    setattr(args,'df',False)
+    setattr(args, 'subcommand', 'SICER')
+    setattr(args, 'df', False)
+
+    # initialize logger system
+    set_log_path(args.output_directory, args.treatment_file, args.control_file)
+    logger = logging.getLogger("SICER 2")
 
     # Check if argument inputs are valid
     if not(os.path.isabs(args.treatment_file)):
@@ -164,13 +182,13 @@ def main():
         bed_file_name = args.treatment_file.replace('.bam', '.bed')
         
         if not Utility.fileExists(bed_file_name):
-            process =  subprocess.Popen("bedtools bamtobed -i %s > %s" % (args.treatment_file, bed_file_name),
+            process = subprocess.Popen("bedtools bamtobed -i %s > %s" % (args.treatment_file, bed_file_name),
                                 stdin=subprocess.PIPE,
                                 shell=True,
                                 )
             process.communicate()
             if process.returncode != 0:
-                sys.stderr.write("Error: Cannot convert BAM file to BED file.\nCheck if bedtools2 (https://github.com/arq5x/bedtools2) has been installed correctly.\n")
+                logger.error("Error: Cannot convert BAM file to BED file.\nCheck if bedtools2 (https://github.com/arq5x/bedtools2) has been installed correctly.\n")
                 sys.exit(1)
         args.treatment_file = bed_file_name
 
@@ -179,6 +197,9 @@ def main():
             args.control_file = os.path.join(curr_path, args.control_file)
 
         if (not (Utility.fileExists(args.control_file))):
+            error_message = "Error: Control file does not exist with error code {}: {}".format(
+                errno.ENOENT, os.strerror(errno.ENOENT))
+            logger.error(error_message)
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), args.control_file)
 
         if (not (args.control_file.lower().endswith('.bed')) and not (args.control_file.lower().endswith('.bam'))):
@@ -188,34 +209,34 @@ def main():
             bed_file_name = args.control_file.replace('.bam', '.bed')
             
             if not Utility.fileExists(bed_file_name):
-                process =  subprocess.Popen("bedtools bamtobed -i %s > %s" % (args.control_file, bed_file_name),
-                                stdin=subprocess.PIPE,
-                                shell=True,
-                                )
+                process = subprocess.Popen("bedtools bamtobed -i %s > %s" % (args.control_file, bed_file_name),
+                                           stdin=subprocess.PIPE,
+                                           shell=True)
                 process.communicate()
                 if process.returncode != 0:
-                    sys.stderr.write("Error: Cannot convert BAM file to BED file.\nCheck if bedtools2 (https://github.com/arq5x/bedtools2) has been installed correctly.\n")
+                    logger.error("Error: Cannot convert BAM file to BED file.\nCheck if bedtools2 "
+                                 "(https://github.com/arq5x/bedtools2) has been installed correctly.\n")
                     sys.exit(1)
             args.control_file = bed_file_name
 
     if (not (args.species in GenomeData.species_chroms.keys())):
-        sys.stderr.write("Error: Species " + args.species + " not recognized.\n")
+        logger.error(f'Error: Species {args.species} not recognized.\n')
         sys.exit(1)
 
     if (not (args.effective_genome_fraction <= 1 and args.effective_genome_fraction >= 0)):
-        sys.stderr.write("Error: Effective genome fraction must be a value between 0 and 1.\n")
+        logger.error("Error: Effective genome fraction must be a value between 0 and 1.\n")
         sys.exit(1)
 
-
     if (args.gap_size % args.window_size != 0):
-        sys.stderr.write("Error: Gap size is not a multiple of window size.\n")
+        logger.error("Error: Gap size is not a multiple of window size.\n")
         sys.exit(1)
 
     if not os.path.exists(args.output_directory):
         try:
             os.makedirs(args.output_directory)
         except:
-            sys.stderr.write("Error: Gap size is not a multiple of window size.\n" % args.output_directory)
+            logger.error("Error: Output directory cannot be created. Check if directories can be created in %s.\n"
+                         % args.output_directory)
             sys.exit(1)
 
     if not(os.path.isabs(args.output_directory)):
@@ -225,10 +246,33 @@ def main():
         args.cpu = cpu_available
         warnings.warn("The number of CPU cores entered is greater than the number of cores available for this process. Executing SICER with the maximum number of cores available.\n")
 
-    print("Running SICER with given arguments \n")
+    logger.setup("SICER 2.0 is running with the following arguments: ")
+    logger.setup("Treatment file: %s" % args.treatment_file)
+    logger.setup("Control file: %s" % args.control_file)
+    logger.setup("Species: %s" % args.species)
+    logger.setup("Redundancy threshold: %s" % args.redundancy_threshold)
+    logger.setup("Window size: %s" % args.window_size)
+    logger.setup("Fragment size: %s" % args.fragment_size)
+    logger.setup("Effective genome fraction: %s" % args.effective_genome_fraction)
+    logger.setup("False discovery rate: %s" % args.false_discovery_rate)
+    logger.setup("False discovery rate approach: %s" % "Benjamini-Hochberg" if args.false_discovery_rate_approach == "BH" else "Clipper")
+    logger.setup("Output directory: %s" % args.output_directory)
+    logger.setup("Gap size: %s" % args.gap_size)
+    logger.setup("E-value: %s" % args.e_value)
+    logger.setup("CPU core count: %s" % args.cpu)
+    logger.setup("Output significant reads: %s \n" % args.significant_reads)
+
+    # check if the input treatment and control file name are the same
+    if (args.control_file is not None):
+        treatment_file_name = os.path.basename(args.treatment_file)
+        control_file_name = os.path.basename(args.control_file)
+        if (treatment_file_name == control_file_name):
+            logger.error("Error: Treatment file and control file cannot have the same name.\n")
+            sys.exit(1)
+
     run_SICER.main(args)
 
-    print("\nProgram Finished Running")
+    logger.info(f"SICER 2.0 has finished running with execution time of {((time.time() - start_time) / 60):.2f} minutes.")
 
 
 if __name__ == '__main__':

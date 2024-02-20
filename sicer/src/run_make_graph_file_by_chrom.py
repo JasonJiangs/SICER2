@@ -2,11 +2,10 @@
 
 # Modified by: Jin Yong Yoo
 
-import multiprocessing as mp
 from functools import partial
-from math import *
 import sys
 import numpy as np
+import logging
 
 from sicer.lib import GenomeData
 
@@ -25,7 +24,6 @@ def get_bed_coords(chrom_reads, chrom_length, fragment_size, chrom, verbose):
     output:
         return: a sorted list of positions which might have redundent entries
     """
-
     postive_tag_counts = 0
     negative_tag_counts = 0
     shift = int(round(fragment_size / 2))
@@ -187,6 +185,7 @@ def makeGraphFile(args, filtered, chrom, chrom_length):
 
 
 def main(args, pool, filtered=False):
+    s_logger = logging.getLogger("s_logger")
     chroms = GenomeData.species_chroms[args.species]
     chrom_lengths = GenomeData.species_chrom_lengths[args.species]
 
@@ -195,7 +194,7 @@ def main(args, pool, filtered=False):
         if chrom in chrom_lengths.keys():
             chrom_length = chrom_lengths[chrom]
         else:
-            print("Can not find the length of ", chrom)
+            s_logger.info("Can not find the length of ", chrom)
         list_of_args.append((chrom, chrom_length))
 
     # Use multiprocessing to partition the gneome in windows and generate the summary files in parallel processes
@@ -207,6 +206,6 @@ def main(args, pool, filtered=False):
     total_tag_count = 0
     for result in makeGraphFile_result:
         total_tag_count += result[0]
-        print(result[1])
+        s_logger.info(result[1])
 
     return (total_tag_count)

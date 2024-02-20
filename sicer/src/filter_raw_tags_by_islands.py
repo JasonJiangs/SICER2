@@ -5,10 +5,8 @@
 # Modified by: Jin Yong Yoo
 
 import bisect
-import multiprocessing as mp
 import os
 from functools import partial
-from math import *
 
 import numpy as np
 
@@ -47,7 +45,7 @@ def filter_tags_by_islands(file_name, fragment_size, chrom):
 
 
 def main(args, pool):
-    chroms = GenomeData.species_chroms[args.species];
+    chroms = GenomeData.species_chroms[args.species]
     treatment_file = args.treatment_file.replace('.bed', '')
 
     # Use multiprocessing to filter raw tags by islands in parallel processes
