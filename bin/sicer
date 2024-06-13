@@ -8,32 +8,36 @@ import time
 import sys, errno, warnings
 
 curr_path = os.getcwd()
-cpu_available = os.cpu_count() - 1  #leave one core for I/O
+cpu_available = os.cpu_count() - 1  # leave one core for I/O
 
 import subprocess
 import argparse
 import logging
 
-# Imports from SICER package
 from sicer.main import run_SICER
 from sicer.lib import Utility, GenomeData
 from sicer import set_log_path
 
+
 def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
         return '%s:%s: %s:%s\n' % (filename, lineno, category.__name__, message)
 
+
 warnings.formatwarning = warning_on_one_line
+
 
 def main():
     '''The main function/pipeline for SICER'''
-    parser = argparse.ArgumentParser(description='Processing arguments for SICER', usage = "Use --help or -h for more information")
+    parser = argparse.ArgumentParser(description='Processing arguments for SICER 2.0',
+                                     usage="Use --help or -h for more information")
 
     parser.add_argument(
         '--treatment_file',
         '-t',
         required=True,
         type=str,
-        help='''Name of the sample file you wish to run SICER on. This can either be the relative or the absolute path of the file. Must be in BED or BAM format.'''
+        help='''Name of the sample file you wish to run SICER on. This can either be the relative or the absolute path 
+        of the file. Must be in BED or BAM format.'''
     )
 
     parser.add_argument(
@@ -41,7 +45,8 @@ def main():
         '-c',
         required=False,
         type=str,
-        help='''Name of the control library in BED or BAM format. This can either be the relative or the absolute path of the file. If you wish to run SICER without a control library, simply do not enter the file. '''
+        help='''Name of the control library in BED or BAM format. This can either be the relative or the absolute path 
+        of the file. If you wish to run SICER without a control library, simply do not enter the file. '''
     )
 
     parser.add_argument(
@@ -76,7 +81,8 @@ def main():
         required=False,
         type=int,
         default=150,
-        help='The amount of shift from the beginning of a read to the center of the DNA fragment represented by the read. Default value is 150 (bp).'
+        help='The amount of shift from the beginning of a read to the center of the DNA fragment represented '
+             'by the read. Default value is 150 (bp).'
     )
 
     parser.add_argument(
@@ -103,7 +109,8 @@ def main():
         required=False,
         default='bh',
         type=str,
-        help='''Approach to perform FDR control. Default value is "BH" (Benjamini-Hochberg). Alternative option is "clipper"".'''
+        help='''Approach to perform FDR control. Default value is "BH" (Benjamini-Hochberg procedure). 
+        Alternative option is "clipper" (Clipper method).'''
     )
 
     parser.add_argument(
@@ -121,7 +128,8 @@ def main():
         required=False,
         type=int,
         default=600,
-        help='The minimum length of a \"gap\" such that neighboring window is an \"island.\" This value must be a multiple of the window size. Default value is 600 (bp)'''
+        help='The minimum length of a \"gap\" such that neighboring window is an \"island.\" '
+             'This value must be a multiple of the window size. Default value is 600 (bp)'''
     )
     parser.add_argument(
         '--e_value',
@@ -138,14 +146,16 @@ def main():
         required=False,
         type=int,
         default=cpu_available,
-        help='CPU Core Count: The number of CPU cores SICER program will use when executing multi-processing tasks. Optimal core count is the species\' number of chromosomes. Default value is the maximum number of cores avaiable in the system.'
+        help='CPU Core Count: The number of CPU cores SICER program will use when executing multi-processing tasks. '
+             'Optimal core count is the species\' number of chromosomes. Default value is the maximum number of cores avaiable in the system.'
     )
 
     parser.add_argument(
         '--significant_reads',
         required=False,
         action='store_true',
-        help='Output Significant Reads: Enter \"--significant_reads\" to have SICER produce a BED file of treatment reads filtered by significant islands and WIG file of filtered reads binned into windows'
+        help='Output Significant Reads: Enter \"--significant_reads\" to have SICER produce a BED file of '
+             'treatment reads filtered by significant islands and WIG file of filtered reads binned into windows'
     )
 
     parser.add_argument(
@@ -156,12 +166,24 @@ def main():
         action="store_true"
     )
 
+    parser.add_argument(
+        "--temp_file",
+        "-tf",
+        required=False,
+        type=str,
+        help="Temporary directory to store intermediate files. "
+             "Default will be automatically assigned by tempfile, but make sure there are enough space "
+             "and the appointed directory is writable and empty."
+    )
+
     start_time = time.time()
     args = parser.parse_args()
     setattr(args, 'subcommand', 'SICER')
     setattr(args, 'df', False)
 
     # initialize logger system
+    if not os.path.exists(args.output_directory):
+        os.makedirs(args.output_directory)
     set_log_path(args.output_directory, args.treatment_file, args.control_file)
     logger = logging.getLogger("SICER 2")
 
@@ -244,7 +266,8 @@ def main():
 
     if args.cpu > cpu_available:
         args.cpu = cpu_available
-        warnings.warn("The number of CPU cores entered is greater than the number of cores available for this process. Executing SICER with the maximum number of cores available.\n")
+        warnings.warn("The number of CPU cores entered is greater than the number of cores available for this process. "
+                      "Executing SICER with the maximum number of cores available.\n")
 
     logger.setup("SICER 2.0 is running with the following arguments: ")
     logger.setup("Treatment file: %s" % args.treatment_file)
@@ -255,7 +278,8 @@ def main():
     logger.setup("Fragment size: %s" % args.fragment_size)
     logger.setup("Effective genome fraction: %s" % args.effective_genome_fraction)
     logger.setup("False discovery rate: %s" % args.false_discovery_rate)
-    logger.setup("False discovery rate approach: %s" % "Benjamini-Hochberg" if args.false_discovery_rate_approach == "BH" else "Clipper")
+    logger.setup("False discovery rate approach: %s" % "Benjamini-Hochberg" if args.false_discovery_rate_approach.lower() == "bh"
+                 else "False discovery rate approach: %s" % "Clipper")
     logger.setup("Output directory: %s" % args.output_directory)
     logger.setup("Gap size: %s" % args.gap_size)
     logger.setup("E-value: %s" % args.e_value)

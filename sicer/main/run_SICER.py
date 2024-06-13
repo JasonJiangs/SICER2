@@ -40,14 +40,31 @@ def main(args, df_run=False):
         logger.info("Control library is provided. SICER 2 will run with a control library.\n")
 
     # Creates temporary directory to contain all intermediate files.
-    try:
-        temp_dir = tempfile.mkdtemp()
-        # Change current working directory to temp_dir
-        os.chdir(temp_dir)
-    except Exception as e:
-        logger.error("Temporary directory required for SICER 2 cannot be created. "
-                     "Check if directories can be created in %s. Error: %s" % (curr_path, str(e)))
-        sys.exit(-1)
+    if args.temp_file is None:  # if none, then automatically set by tempfile
+        try:
+            temp_dir = tempfile.mkdtemp()
+            # Change current working directory to temp_dir
+            os.chdir(temp_dir)
+        except Exception as e:
+            logger.error("Temporary directory required for SICER 2 cannot be created. "
+                         "Check if directories can be created in %s. Error: %s" % (curr_path, str(e)))
+            sys.exit(-1)
+    else:
+        temp_dir = args.temp_file
+        try:
+            # check if the temp directory is empty
+            if os.path.exists(temp_dir):
+                if len(os.listdir(temp_dir)) > 0:
+                    logger.warning("Temporary directory required for SICER 2 is not empty. "
+                                 "Remove this directory for temp storage.")
+                    shutil.rmtree(temp_dir)
+
+            os.makedirs(temp_dir)
+            os.chdir(temp_dir)
+        except Exception as e:
+            logger.error("Temporary directory required for SICER 2 cannot be created. "
+                         "Check if directories can be created in %s. Error: %s" % (curr_path, str(e)))
+            sys.exit(-1)
 
     try:
         # Step 0: create Pool object for parallel-Processing
@@ -121,7 +138,7 @@ def main(args, df_run=False):
                 s_logger.info(f"Given significance {str(args.false_discovery_rate)}, "
                               f"out of the {total_number_islands} candidate islands, "
                               f"there are {total_island_count} significant islands,")
-            else:
+            elif args.false_discovery_rate_approach.lower() == "clipper":
                 s_logger.info(' ')
                 logger.run("Calculate significance of candidate islands using the control library.")
                 associate_tags_with_chip_and_control_w_fc_q.main(args,
@@ -139,6 +156,8 @@ def main(args, df_run=False):
                 s_logger.info(f"Given significance {str(args.false_discovery_rate)}, "
                               f"out of the {total_number_islands} candidate islands, "
                               f"there are {clipper_significant_read_count} significant islands.")
+            else:
+                s_logger.error("Invalid FDR approach. Please choose either 'bh' or 'clipper'.")
 
         # Optional Outputs
         if args.significant_reads:
@@ -171,11 +190,4 @@ def main(args, df_run=False):
     finally:
         if df_run == False:
             s_logger.info("Remove temporary directory and all files in it.")
-            # save_path = '/Users/shiyujiang/Desktop/SICER-Clipper/New_version/SICER2/bin/save'
-            # import numpy as np  # TODO: check
-            # for f in os.listdir(temp_dir):
-            #     print(f)
-            #     # load f
-            #     np_file = np.load(f, allow_pickle=True)
-            #     np.save(save_path+'/'+f, np_file)
             shutil.rmtree(temp_dir)
